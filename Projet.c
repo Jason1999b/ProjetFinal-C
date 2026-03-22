@@ -23,6 +23,11 @@ int main(int argc, char *argv[]) {
     rewind(f);
 
     unsigned char *data = malloc(size_tmp);
+    if (!data) {
+        printf("Error: not enough memory\n");
+        fclose(f);
+        return 1;
+    }
     size_t size = fread(data, 1, size_tmp, f);
     fclose(f);
 
@@ -32,8 +37,29 @@ int main(int argc, char *argv[]) {
 
     // Setup PNG file with libpng
     FILE *fp = fopen("output.png", "wb");
+    if (!fp) {
+        printf("Error: cannot create output.png\n");
+        free(data);
+        return 1;
+    }
+
     png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    if (!png) {
+        printf("Error: PNG creation failed\n");
+        fclose(fp);
+        free(data);
+        return 1;
+    }
+
     png_infop info = png_create_info_struct(png);
+    if (!info) {
+        printf("Error: PNG info creation failed\n");
+        png_destroy_write_struct(&png, NULL);
+        fclose(fp);
+        free(data);
+        return 1;
+    }
+
     png_init_io(png, fp);
 
     // Configure: RGB format, 8 bits per channel
@@ -43,6 +69,14 @@ int main(int argc, char *argv[]) {
 
     // Write pixels: one row at a time
     unsigned char *row = malloc(width * 3);  // 3 bytes per pixel (RGB)
+    if (!row) {
+        printf("Error: not enough memory for row\n");
+        png_destroy_write_struct(&png, &info);
+        fclose(fp);
+        free(data);
+        return 1;
+    }
+
     size_t idx = 0;
 
     for (int y = 0; y < height; y++) {
