@@ -3,6 +3,26 @@
 #include <string.h>
 #include <png.h>
 
+// Convertir un octet en couleur RGB
+// 0-85: BLEU (texte ASCII), 86-170: VERT (données moyennes), 171-255: ROUGE (binaire pur)
+void byte_to_color(unsigned char byte, unsigned char *r, unsigned char *g, unsigned char *b) {
+    if (byte <= 85) {
+        *r = 0;
+        *g = byte;
+        *b = 85 + (byte * 2);
+    } else if (byte <= 170) {
+        int pos = byte - 86;
+        *r = pos;
+        *g = 170 + pos;
+        *b = 170 - pos;
+    } else {
+        int pos = byte - 171;
+        *r = 171 + pos;
+        *g = 255 - pos;
+        *b = 0;
+    }
+}
+
 // Extraire le nom sans le chemin (ex: "/bin/bash" -> "bash")
 const char *extract_filename(const char *path) {
     const char *name = strrchr(path, '/');
@@ -118,9 +138,11 @@ int main(int argc, char *argv[]) {
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             unsigned char val = (idx < size) ? data[idx++] : 0;
-            row[x * 3 + 0] = val;
-            row[x * 3 + 1] = val;
-            row[x * 3 + 2] = val;
+            unsigned char r, g, b;
+            byte_to_color(val, &r, &g, &b);
+            row[x * 3 + 0] = r;
+            row[x * 3 + 1] = g;
+            row[x * 3 + 2] = b;
         }
         png_write_row(png, row);
     }
