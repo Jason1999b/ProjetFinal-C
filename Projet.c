@@ -15,7 +15,23 @@ const char *extract_filename(const char *path) {
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         printf("Usage: %s <file>\n", argv[0]);
+        printf("Utilisez --help pour plus d'informations\n");
         return 1;
+    }
+
+    // Gérer --help
+    if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
+        printf("Usage: %s <fichier_binaire>\n", argv[0]);
+        printf("\n");
+        printf("Convertit un fichier binaire en image PNG.\n");
+        printf("Chaque octet est représenté par un pixel coloré.\n");
+        printf("\n");
+        printf("Options:\n");
+        printf("  -h, --help    Affiche cette aide\n");
+        printf("\n");
+        printf("Exemple:\n");
+        printf("  %s /bin/bash    → crée bash.png\n", argv[0]);
+        return 0;
     }
 
     FILE *f = fopen(argv[1], "rb");
