@@ -1,23 +1,30 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
+#include <string.h>
 #include <png.h>
 
+// Extraire le nom sans le chemin (ex: "/bin/bash" -> "bash")
+const char *extract_filename(const char *path) {
+    const char *name = strrchr(path, '/');
+    if (!name) {
+        name = strrchr(path, '\\');  // Windows
+    }
+    return name ? name + 1 : path;
+}
+
 int main(int argc, char *argv[]) {
-    // Check arguments: we need a filename
     if (argc < 2) {
         printf("Usage: %s <file>\n", argv[0]);
         return 1;
     }
 
-    // Open and read the entire binary file
     FILE *f = fopen(argv[1], "rb");
     if (!f) {
         printf("Error: file not found\n");
         return 1;
     }
 
-    // Get file size by seeking to end
+    // Obtenir la taille via fseek/ftell
     fseek(f, 0, SEEK_END);
     long size_tmp = ftell(f);
     rewind(f);
@@ -31,14 +38,28 @@ int main(int argc, char *argv[]) {
     size_t size = fread(data, 1, size_tmp, f);
     fclose(f);
 
-    // Calculate square-ish image dimensions
-    int width = (int)ceil(sqrt(size));
-    int height = (int)ceil((double)size / width);
+    // Calcul pour obtenir une image carrée
+    int width = 1;
+    while (width * width < (int)size) {
+        width++;
+    }
+    int height = ((int)size + width - 1) / width;
 
-    // Setup PNG file with libpng
-    FILE *fp = fopen("output.png", "wb");
+    // Créer nom de sortie dynamique
+    const char *input_name = extract_filename(argv[1]);
+    size_t output_name_len = strlen(input_name) + 5;
+    char *output_name = malloc(output_name_len);
+    if (!output_name) {
+        printf("Error: not enough memory for filename\n");
+        free(data);
+        return 1;
+    }
+    snprintf(output_name, output_name_len, "%s.png", input_name);
+
+    FILE *fp = fopen(output_name, "wb");
     if (!fp) {
-        printf("Error: cannot create output.png\n");
+        printf("Error: cannot create %s\n", output_name);
+        free(output_name);
         free(data);
         return 1;
     }
@@ -47,6 +68,7 @@ int main(int argc, char *argv[]) {
     if (!png) {
         printf("Error: PNG creation failed\n");
         fclose(fp);
+        free(output_name);
         free(data);
         return 1;
     }
@@ -56,33 +78,30 @@ int main(int argc, char *argv[]) {
         printf("Error: PNG info creation failed\n");
         png_destroy_write_struct(&png, NULL);
         fclose(fp);
+        free(output_name);
         free(data);
         return 1;
     }
 
     png_init_io(png, fp);
-
-    // Configure: RGB format, 8 bits per channel
     png_set_IHDR(png, info, width, height, 8, PNG_COLOR_TYPE_RGB,
                  PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
     png_write_info(png, info);
 
-    // Write pixels: one row at a time
-    unsigned char *row = malloc(width * 3);  // 3 bytes per pixel (RGB)
+    unsigned char *row = malloc(width * 3);
     if (!row) {
         printf("Error: not enough memory for row\n");
         png_destroy_write_struct(&png, &info);
         fclose(fp);
+        free(output_name);
         free(data);
         return 1;
     }
 
     size_t idx = 0;
-
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             unsigned char val = (idx < size) ? data[idx++] : 0;
-            // Grayscale: same value for R, G, B
             row[x * 3 + 0] = val;
             row[x * 3 + 1] = val;
             row[x * 3 + 2] = val;
@@ -90,13 +109,13 @@ int main(int argc, char *argv[]) {
         png_write_row(png, row);
     }
 
-    // Cleanup
     png_write_end(png, NULL);
     png_destroy_write_struct(&png, &info);
     fclose(fp);
     free(row);
     free(data);
 
-    printf("Image created: output.png\n");
+    printf("Image created: %s\n", output_name);
+    free(output_name);
     return 0;
 }
