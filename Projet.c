@@ -23,6 +23,37 @@ void byte_to_color(unsigned char byte, unsigned char *r, unsigned char *g, unsig
     }
 }
 
+// Lire un fichier binaire et retourner les données
+unsigned char *read_binary_file(const char *filename, size_t *size) {
+    FILE *f = fopen(filename, "rb");
+    if (!f) {
+        return NULL;
+    }
+
+    fseek(f, 0, SEEK_END);
+    long size_tmp = ftell(f);
+    rewind(f);
+
+    unsigned char *data = malloc(size_tmp);
+    if (!data) {
+        fclose(f);
+        return NULL;
+    }
+
+    *size = fread(data, 1, size_tmp, f);
+    fclose(f);
+    return data;
+}
+
+// Calculer dimensions pour une image presque carrée
+void calculate_dimensions(size_t size, int *width, int *height) {
+    *width = 1;
+    while ((*width) * (*width) < (int)size) {
+        (*width)++;
+    }
+    *height = ((int)size + *width - 1) / *width;
+}
+
 // Extraire le nom sans le chemin (ex: "/bin/bash" -> "bash")
 const char *extract_filename(const char *path) {
     const char *name = strrchr(path, '/');
@@ -54,32 +85,15 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    FILE *f = fopen(argv[1], "rb");
-    if (!f) {
-        printf("Error: file not found\n");
-        return 1;
-    }
-
-    // Obtenir la taille via fseek/ftell
-    fseek(f, 0, SEEK_END);
-    long size_tmp = ftell(f);
-    rewind(f);
-
-    unsigned char *data = malloc(size_tmp);
+    size_t size;
+    unsigned char *data = read_binary_file(argv[1], &size);
     if (!data) {
-        printf("Error: not enough memory\n");
-        fclose(f);
+        printf("Error: cannot read file\n");
         return 1;
     }
-    size_t size = fread(data, 1, size_tmp, f);
-    fclose(f);
 
-    // Calcul pour obtenir une image carrée
-    int width = 1;
-    while (width * width < (int)size) {
-        width++;
-    }
-    int height = ((int)size + width - 1) / width;
+    int width, height;
+    calculate_dimensions(size, &width, &height);
 
     // Créer nom de sortie dynamique
     const char *input_name = extract_filename(argv[1]);
