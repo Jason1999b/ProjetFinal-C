@@ -3,7 +3,6 @@
 #include <string.h>
 #include <png.h>
 
-// Convertir un octet en couleur RGB
 // 0-85: BLEU (texte ASCII), 86-170: VERT (données moyennes), 171-255: ROUGE (binaire pur)
 void byte_to_color(unsigned char byte, unsigned char *r, unsigned char *g, unsigned char *b) {
     if (byte <= 85) {
@@ -23,7 +22,6 @@ void byte_to_color(unsigned char byte, unsigned char *r, unsigned char *g, unsig
     }
 }
 
-// Lire un fichier binaire et retourner les données
 unsigned char *read_binary_file(const char *filename, size_t *size) {
     FILE *f = fopen(filename, "rb");
     if (!f) {
@@ -45,16 +43,22 @@ unsigned char *read_binary_file(const char *filename, size_t *size) {
     return data;
 }
 
-// Calculer dimensions pour une image presque carrée
-void calculate_dimensions(size_t size, int *width, int *height) {
+// Retourne -1 si trop grand, 0 sinon
+int calculate_dimensions(size_t size, int *width, int *height) {
     *width = 1;
     while ((*width) * (*width) < (int)size) {
         (*width)++;
+        if (*width > 800) {
+            return -1;
+        }
     }
     *height = ((int)size + *width - 1) / *width;
+    if (*height > 300) {
+        return -1;
+    }
+    return 0;
 }
 
-// Extraire le nom sans le chemin (ex: "/bin/bash" -> "bash")
 const char *extract_filename(const char *path) {
     const char *name = strrchr(path, '/');
     if (!name) {
@@ -70,7 +74,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Gérer --help
     if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
         printf("Usage: %s <fichier_binaire>\n", argv[0]);
         printf("\n");
@@ -93,9 +96,12 @@ int main(int argc, char *argv[]) {
     }
 
     int width, height;
-    calculate_dimensions(size, &width, &height);
+    if (calculate_dimensions(size, &width, &height) != 0) {
+        printf("Error: file too large (max 800x300)\n");
+        free(data);
+        return 1;
+    }
 
-    // Créer nom de sortie dynamique
     const char *input_name = extract_filename(argv[1]);
     size_t output_name_len = strlen(input_name) + 5;
     char *output_name = malloc(output_name_len);
